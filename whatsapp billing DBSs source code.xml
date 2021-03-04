@@ -1,0 +1,157 @@
+<api xmlns="http://ws.apache.org/ns/synapse" name="WhatsappBilling_DBSS" context="/whatsappbillingdbss">
+   <resource methods="GET" uri-template="/whatsappbilling_dbss/{msisdn}/{month}/{year}/{operator}/{type}">
+      <inSequence>
+         <log level="custom">
+            <property xmlns:ns="http://org.apache.synapse/xsd" name="TYPE" expression="$ctx:uri.var.type"/>
+            <property xmlns:ns="http://org.apache.synapse/xsd" name="OPERATOR" expression="$ctx:uri.var.operator"/>
+            <property xmlns:ns="http://org.apache.synapse/xsd" name="MSISDN" expression="$ctx:uri.var.msisdn"/>
+            <property xmlns:ns="http://org.apache.synapse/xsd" name="Year" expression="$ctx:uri.var.year"/>
+            <property xmlns:ns="http://org.apache.synapse/xsd" name="Month" expression="$ctx:uri.var.month"/>
+         </log>
+         <property xmlns:ns="http://org.apache.synapse/xsd" name="TRANSACTION_ID" expression="fn:substring-after(get-property('MessageID'),'urn:uuid:')"/>
+         <property name="API_NAME" value="WHATSAPP"/>
+         <property name="INTERFACE_NAME" value="BILLING"/>
+         <property name="REQUEST" value="null"/>
+         <property xmlns:ns="http://org.apache.synapse/xsd" name="REQUEST_TIME" expression="get-property('SYSTEM_DATE', 'yyyy-MM-dd HH:mm:ss.SSS')" scope="default"/>
+         <property xmlns:ns="http://org.apache.synapse/xsd" name="MSISDN" expression="$ctx:uri.var.msisdn" scope="default" type="STRING"/>
+         <property xmlns:ns="http://org.apache.synapse/xsd" name="RESOURCE_URI" expression="fn:concat($trp:X-Forwarded-For,get-property('To'))"/>
+         <property name="LOG_REQUEST_ENDED" value="*****"/>
+         <sequence key="ECARE_LOG_REQUEST"/>
+         <property xmlns:ns="http://org.apache.synapse/xsd" name="TYPE" expression="$ctx:uri.var.type"/>
+         <property xmlns:ns="http://org.apache.synapse/xsd" name="OPERATOR" expression="$ctx:uri.var.operator"/>
+         <property xmlns:ns="http://org.apache.synapse/xsd" name="MSISDN" expression="$ctx:uri.var.msisdn"/>
+         <property xmlns:ns="http://org.apache.synapse/xsd" name="Year" expression="$ctx:uri.var.year"/>
+         <property xmlns:ns="http://org.apache.synapse/xsd" name="Month" expression="$ctx:uri.var.month"/>
+         <property xmlns:ns="http://org.apache.synapse/xsd" name="TRANSACTION_ID" expression="fn:substring-after(get-property('MessageID'),'urn:uuid:')"/>
+         <property name="API_NAME" value="ECARE"/>
+         <property name="INTERFACE_NAME" value="USERBILLING"/>
+         <property name="REQUEST" value="null"/>
+         <property xmlns:ns="http://org.apache.synapse/xsd" name="REQUEST_TIME" expression="get-property('SYSTEM_DATE', 'yyyy-MM-dd HH:mm:ss.SSS')" scope="default"/>
+         <property xmlns:ns="http://org.apache.synapse/xsd" name="MSISDN" expression="$ctx:uri.var.msisdn"/>
+         <property xmlns:ns="http://org.apache.synapse/xsd" name="RESOURCE_URI" expression="fn:concat($trp:X-Forwarded-For,get-property('To'))"/>
+         <property name="LOG_REQUEST_ENDED" value="*****"/>
+         <sequence key="ECARE_LOG_REQUEST"/>
+         <header name="User-Agent" scope="transport" value="Apache-HttpClient/4.1.1 (java 1.5)"/>
+         <property name="Accept-Encoding" scope="transport" action="remove"/>
+         <property name="Content-Encoding" scope="transport" action="remove"/>
+         <property xmlns:ns="http://org.apache.synapse/xsd" name="uri.var.MSISDN" expression="$ctx:uri.var.msisdn"/>
+         <log level="full">
+            <property name="before call" value="------------subscriptionID------------"/>
+         </log>
+         <call>
+            <endpoint>
+               <http method="GET" uri-template="http://10.225.50.92:3300/api/v1/subscriptions?filter%5Bmsisdn%5D=923008508995"/>
+            </endpoint>
+         </call>
+         <property xmlns:ns="http://org.apache.synapse/xsd" name="subscription_id" expression="json-eval($.data[0].id)"/>
+         <log level="custom">
+            <property xmlns:ns="http://org.apache.synapse/xsd" name="subscription_id" expression="json-eval($.data[0].id)"/>
+         </log>
+         <log level="full">
+            <property name="before Call" value="------------Invoice------------"/>
+         </log>
+         <property xmlns:ns="http://org.apache.synapse/xsd" name="uri.var.subcriptionid" expression="$ctx:subscription_id"/>
+         <header name="User-Agent" scope="transport" value="Apache-HttpClient/4.1.1 (java 1.5)"/>
+         <property name="Accept-Encoding" scope="transport" action="remove"/>
+         <property name="Content-Encoding" scope="transport" action="remove"/>
+         <call>
+            <endpoint>
+               <http method="GET" uri-template="http://10.225.50.92:3300/api/v1/customers/442/invoices"/>
+            </endpoint>
+         </call>
+         <property xmlns:ns="http://org.apache.synapse/xsd" name="DATA" expression="json-eval($.data[0].attributes.pdf-url)"/>
+         <log level="full">
+            <property name="After Call" value="------------Invoice------------"/>
+            <property xmlns:ns="http://org.apache.synapse/xsd" name="DATA" expression="json-eval($.data[0].attributes.pdf-url)"/>
+         </log>
+         <log level="custom">
+            <property name="before DownloadPD" value="------------DownloadPDF------------"/>
+         </log>
+         <payloadFactory media-type="json">
+            <format>{"pdf-url":"$1"}</format>
+            <args>
+               <arg value="http://10.225.50.92:3300/api/v1/customers/430/invoices/2020-11/summary-pdf"/>
+            </args>
+         </payloadFactory>
+         <property xmlns:ns="http://ws.apache.org/commons/ns/payload" name="BinaryResponse" expression="$body/ns:binary/text()"/>
+         <property name="OUT_ONLY" value="true"/>
+         <property name="timestamp" expression="get-property(&quot;SYSTEM_DATE&quot;, &quot;yyyy-MM-dd-HH-mm-ss-SSS&quot;)" scope="default" type="STRING"/>
+         <property name="transport.vfs.ReplyFileName" expression="fn:concat('summar-pdf-',$ctx:uri.var.msisdn,get-property('timestamp'))" scope="transport"/>
+         <call>
+            <endpoint>
+               <address uri="vfs:file://storage/zameer"/>
+            </endpoint>
+         </call>
+         <property name="Transaction_ID" expression="fn:concat($ctx:MSISDN,$ctx:Year,$ctx:Month)"/>
+         <property name="folder" value="/storage/zameer/"/>
+         <property name="path" expression="fn:concat('summar-pdf-',$ctx:uri.var.msisdn,get-property('timestamp'))"/>
+         <fileconnector.search>
+            <source>{$ctx:folder}</source>
+            <filePattern>{$ctx:path}</filePattern>
+            <recursiveSearch>true</recursiveSearch>
+         </fileconnector.search>
+         <enrich>
+            <source type="body" clone="true"/>
+            <target type="property" property="LOG_RESPONSE"/>
+         </enrich>
+         <property name="ContentType" value="text/xml" scope="axis2"/>
+         <log level="custom">
+            <property name="JSON_RESPONSE" expression="$ctx:LOG_RESPONSE"/>
+            <property xmlns:ns1="http://org.wso2.esbconnectors.FileConnector" name="fileexist" expression="//ns1:result/ns1:file"/>
+         </log>
+         <property xmlns:ns1="http://org.wso2.esbconnectors.FileConnector" name="fileexist" expression="//ns1:result/ns1:file"/>
+         <filter source="boolean($ctx:fileexist)" regex="true">
+            <then>
+               <payloadFactory media-type="json">
+                  <format>{     "URL": "https://apim.jazz.com.pk/pdf/jazzbill/$1" }</format>
+                  <args>
+                     <arg evaluator="xml" expression="$ctx:Transaction_ID"/>
+                  </args>
+               </payloadFactory>
+            </then>
+            <else>
+               <property name="Transaction_ID" expression="fn:concat($ctx:MSISDN,$ctx:Year,$ctx:Month)"/>
+               <log level="custom">
+                  <property name="Transaction_ID" expression="fn:concat($ctx:MSISDN,$ctx:Year,$ctx:Month)"/>
+               </log>
+               <class name="com.arcanainfo.Taxcertificate.WhatsappPDF"/>
+               <payloadFactory media-type="json">
+                  <format>{     "URL": "https://apim.jazz.com.pk/pdf/jazzbill/$1" }</format>
+                  <args>
+                     <arg evaluator="xml" expression="$ctx:Transaction_ID"/>
+                  </args>
+               </payloadFactory>
+            </else>
+         </filter>
+         <property name="API_NAME" value="USERBILLINGDATABASE"/>
+         <property name="INTERFACE_NAME" value="PMCLIVE"/>
+         <property name="RESPONSE_TIME" expression="get-property('SYSTEM_DATE', 'yyyy-MM-dd HH:mm:ss.SSS')" scope="default"/>
+         <property name="MSISDN" expression="$ctx:uri.var.msisdn"/>
+         <property name="LOG_RESPONSE_STATUS" value="OK"/>
+         <property name="LOG_RESPONSE" expression="$ctx:ACCOUNT_NUM"/>
+         <property name="JSON_RESPONSE" expression="$ctx:LOG_RESPONSE"/>
+         <property name="LOG_RESPONSE_ENDED" value="*****"/>
+         <sequence key="ECARE_LOG_RESPONSE"/>
+         <property name="API_NAME" value="USERBILLINGDATABASE"/>
+         <property name="INTERFACE_NAME" value="E2VAULT_DB"/>
+         <property name="RESPONSE_TIME" expression="get-property('SYSTEM_DATE', 'yyyy-MM-dd HH:mm:ss.SSS')" scope="default"/>
+         <property name="MSISDN" expression="$ctx:uri.var.msisdn"/>
+         <property name="LOG_RESPONSE_STATUS" value="OK"/>
+         <property name="LOG_RESPONSE" expression="$ctx:BILL_VERSION"/>
+         <property name="JSON_RESPONSE" expression="$ctx:LOG_RESPONSE"/>
+         <property name="LOG_RESPONSE_ENDED" value="*****"/>
+         <sequence key="ECARE_LOG_RESPONSE"/>
+         <property name="API_NAME" value="RENDERTRANSFORM"/>
+         <property name="INTERFACE_NAME" value="E2VAULT_EP"/>
+         <property name="RESPONSE_TIME" expression="get-property('SYSTEM_DATE', 'yyyy-MM-dd HH:mm:ss.SSS')" scope="default"/>
+         <property name="MSISDN" expression="$ctx:uri.var.msisdn"/>
+         <property name="LOG_RESPONSE_STATUS" value="OK"/>
+         <property name="LOG_RESPONSE" value="null"/>
+         <property name="JSON_RESPONSE" expression="$ctx:LOG_RESPONSE"/>
+         <property name="LOG_RESPONSE_ENDED" value="*****"/>
+         <sequence key="ECARE_LOG_RESPONSE"/>
+         <respond/>
+      </inSequence>
+   </resource>
+</api>
+                        
